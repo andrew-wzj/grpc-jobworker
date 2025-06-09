@@ -16,24 +16,7 @@ Submit shell commands, query their status, stop them, or list all—fully asynch
 ---
 
 ## 🗂️ Project Structure
-grpc-jobworker/
-├── client/ # CLI gRPC client
-│ ├── main.go
-│ └── clientutil/ # createContext helper for auth
-│
-├── server/ # gRPC server entry
-│ └── main.go
-│
-├── jobworker/ # Core job logic
-│ ├── jobworker.go # JobWorker (run/stop/query/list)
-│ ├── jobserver.go # gRPC server impl
-│ └── jobworker_test.go # Unit test
-│
-├── proto/ # Protobuf definition
-│ └── job.proto
-│
-├── go.mod / go.sum
-└── README.md
+<pre> grpc-jobworker/ ├── client/ # CLI gRPC client │ ├── main.go │ └── clientutil/ # createContext helper for auth │ └── createContext.go │ ├── server/ # gRPC server entry │ └── main.go │ ├── jobworker/ # Core job logic │ ├── jobworker.go # JobWorker (run/stop/query/list) │ ├── jobserver.go # gRPC server implementation │ └── jobworker_test.go # Unit tests │ ├── proto/ # Protobuf definition │ ├── job.proto │ └── job.pb.go / job_grpc.pb.go (auto-generated) │ ├── go.mod ├── go.sum └── README.md </pre>
 
 
 ---

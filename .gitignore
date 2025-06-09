@@ -1,0 +1,24 @@
+# Go build
+bin/
+*.exe
+*.out
+*.test
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+
+# Certs and secrets
+certs/
+*.crt
+*.key
+*.csr
+*.srl
+*.cnf
+
+# Logs
+*.log
+
+# Dependency management
+vendor/

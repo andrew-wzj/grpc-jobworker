@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "jobworker/proto";
+
+// gRPC Service 定义
+service JobService {
+  rpc Run (RunRequest) returns (RunReply);
+  rpc Stop (JobRequest) returns (StatusReply);
+  rpc Query (JobRequest) returns (JobStatus);
+  rpc List (Empty) returns (JobStatusList);
+}
+
+// 通用 Request
+message JobRequest {
+  string session_id = 1;
+}
+
+// Run 请求
+message RunRequest {
+  string cmd = 1;
+  string name = 2;
+}
+
+// Run 回复
+message RunReply {
+  string session_id = 1;
+  string status = 2;
+}
+
+// 通用状态回复（可用于 Stop 等）
+message StatusReply {
+  string status = 1;
+}
+
+// 查询单个任务状态
+message JobStatus {
+  Job job = 1;
+  string status = 2;
+  string error_msg = 3;
+  bool is_running = 4;
+}
+
+// 多个任务状态
+message JobStatusList {
+  repeated JobStatus jobs = 1;
+}
+
+// 基本 Job 结构
+message Job {
+  string job_id = 1;
+  string name = 2;
+  string cmd = 3;
+}
+
+// 空请求结构（用于 List）
+message Empty {}

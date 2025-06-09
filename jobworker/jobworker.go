@@ -1,77 +1,165 @@
 package jobworker
 
 import (
-    "os/exec"          // To run Linux commands
-    "sync"             // To protect shared memory (Jobs map)
-    "github.com/google/uuid" // To generate a unique Session ID
+	"fmt"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
 )
 
-// Struct: JobSession
-// One session = One job command run
+// JobSession represents a single job command execution
 type JobSession struct {
-    ID     string
-    CmdStr string
-    Status string // "Running", "Completed", "Failed"
+	ID        string
+	Name      string
+	CmdStr    string
+	Cmd       *exec.Cmd
+	Status    string
+	ErrorMsg  string
+	StartTime time.Time
+	Duration  time.Duration
 }
 
-// Struct: JobWorker
-// Manager to run multiple jobs safely
+// JobWorker manages multiple jobs concurrently
 type JobWorker struct {
-    mu    sync.Mutex
-    Jobs  map[string]*JobSession
+	mu   sync.Mutex
+	Jobs map[string]*JobSession
 }
 
-// Function: NewJobWorker()
-// Create a new empty JobWorker
+// NewJobWorker creates a new JobWorker instance
 func NewJobWorker() *JobWorker {
-    return &JobWorker{
-        Jobs: make(map[string]*JobSession),
-    }
+	return &JobWorker{
+		Jobs: make(map[string]*JobSession),
+	}
 }
 
-// Method: Run(cmdStr string) (sessionID, error)
-// Start a Linux command in background and return Session ID
-func (jw *JobWorker) Run(cmdStr string) (string, error) {
-    sessionID := uuid.New().String()
+// Run starts a new job session
+func (jw *JobWorker) Run(cmdStr string, name string) (string, error) {
+	fullID := uuid.New().String()
+	sessionID := fullID[len(fullID)-6:]
+	cmd := exec.Command("bash", "-c", cmdStr)
 
-    job := &JobSession{
-        ID:     sessionID,
-        CmdStr: cmdStr,
-        Status: "Running",
-    }
+	job := &JobSession{
+		ID:        sessionID,
+		Name:      name,
+		CmdStr:    cmdStr,
+		Cmd:       cmd,
+		Status:    "Running",
+		ErrorMsg:  "",
+		StartTime: time.Now(),
+	}
 
-    // Store the job first
-    jw.mu.Lock()
-    jw.Jobs[sessionID] = job
-    jw.mu.Unlock()
+	// Try to parse estimated duration from "sleep N"
+	if strings.HasPrefix(cmdStr, "sleep ") {
+		parts := strings.Split(cmdStr, " ")
+		if len(parts) == 2 {
+			if secs, err := strconv.Atoi(parts[1]); err == nil {
+				job.Duration = time.Duration(secs) * time.Second
+			}
+		}
+	}
 
-    // Run in background (thread / goroutine)
-    go func() {
-        cmd := exec.Command("bash", "-c", cmdStr) // Use bash -c for full Linux command
-        err := cmd.Run()
+	jw.mu.Lock()
+	jw.Jobs[sessionID] = job
+	jw.mu.Unlock()
 
-        jw.mu.Lock()
-        defer jw.mu.Unlock()
+	err := cmd.Start()
+	if err != nil {
+		jw.mu.Lock()
+		job.Status = "Failed"
+		job.ErrorMsg = "Failed to start: " + err.Error()
+		jw.mu.Unlock()
+		return "", err
+	}
 
-        if err != nil {
-            job.Status = "Failed"
-        } else {
-            job.Status = "Completed"
-        }
-    }()
+	go func() {
+		err := cmd.Wait()
 
-    return sessionID, nil
+		jw.mu.Lock()
+		defer jw.mu.Unlock()
+
+		if job.Status == "Stopped" {
+			return
+		}
+		if err != nil {
+			job.Status = "Failed"
+			job.ErrorMsg = err.Error()
+		} else {
+			job.Status = "Completed"
+		}
+	}()
+
+	return sessionID, nil
 }
 
-// Method: GetStatus(sessionID string) (status string, found bool)
-// Ask a job's current status
-func (jw *JobWorker) GetStatus(sessionID string) (string, bool) {
-    jw.mu.Lock()
-    defer jw.mu.Unlock()
+// Stop attempts to kill a running job
+func (jw *JobWorker) Stop(sessionID string) error {
+	jw.mu.Lock()
+	defer jw.mu.Unlock()
 
-    job, exists := jw.Jobs[sessionID]
-    if !exists {
-        return "", false
-    }
-    return job.Status, true
+	job, exists := jw.Jobs[sessionID]
+	if !exists {
+		return fmt.Errorf("job not found")
+	}
+	if job.Status != "Running" {
+		return fmt.Errorf("job is not currently running")
+	}
+
+	if job.Cmd != nil && job.Cmd.Process != nil {
+		err := job.Cmd.Process.Kill()
+		if err != nil && err.Error() != os.ErrProcessDone.Error() {
+			job.Status = "Failed"
+			job.ErrorMsg = err.Error()
+			return fmt.Errorf("failed to kill process: %v", err)
+		}
+		job.Status = "Stopped"
+	} else {
+		return fmt.Errorf("no running process found")
+	}
+
+	return nil
+}
+
+// Optional: PrintAllStatuses with progress bars
+func (jw *JobWorker) PrintAllStatuses() {
+	jw.mu.Lock()
+	defer jw.mu.Unlock()
+
+	if len(jw.Jobs) == 0 {
+		fmt.Println("🕳 No jobs running or completed yet.")
+		return
+	}
+
+	for id, job := range jw.Jobs {
+		bar := ""
+		if job.Status == "Running" && job.Duration > 0 {
+			elapsed := time.Since(job.StartTime)
+			progress := float64(elapsed) / float64(job.Duration)
+			bar = buildProgressBar(progress)
+		} else if job.Status == "Completed" && job.Duration > 0 {
+			bar = buildProgressBar(1.0)
+		} else if job.Status == "Stopped" && job.Duration > 0 {
+			elapsed := time.Since(job.StartTime)
+			progress := float64(elapsed) / float64(job.Duration)
+			if progress > 1.0 {
+				progress = 1.0
+			}
+			bar = buildProgressBar(progress)
+		}
+		fmt.Printf("🧹 ID: %s | Name: %-10s | Status: %-10s | Cmd: %-15s %s\n",
+			id, job.Name, job.Status, job.CmdStr, bar)
+	}
+}
+
+func buildProgressBar(p float64) string {
+	length := 20
+	filled := int(p * float64(length))
+	if filled > length {
+		filled = length
+	}
+	return fmt.Sprintf("[%s%s] %3.0f%%", strings.Repeat("▓", filled), strings.Repeat("░", length-filled), p*100)
 }

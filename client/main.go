@@ -15,13 +15,13 @@ import (
 )
 
 func main() {
-	// ✅ 加载客户端证书
+	// ✅ 1. 加载客户端证书和私钥（client.crt / client.key）
 	clientCert, err := tls.LoadX509KeyPair("certs/client.crt", "certs/client.key")
 	if err != nil {
 		log.Fatalf("❌ Failed to load client cert/key: %v", err)
 	}
 
-	// ✅ 加载 CA 根证书，用于验证服务端
+	// ✅ 2. 加载 CA 根证书，用于验证服务端身份
 	caCert, err := ioutil.ReadFile("certs/ca.crt")
 	if err != nil {
 		log.Fatalf("❌ Failed to read CA cert: %v", err)
@@ -31,16 +31,17 @@ func main() {
 		log.Fatal("❌ Failed to append CA cert to pool")
 	}
 
-	// ✅ 构造 TLS 配置（含客户端身份）
+	// ✅ 3. 构造完整 TLS 配置（支持双向验证 mTLS）
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{clientCert}, // 客户端身份
-		RootCAs:      caPool,                        // 验证服务端
-		ServerName:   "localhost",                   // 必须与 server.crt CN 对应
+		Certificates: []tls.Certificate{clientCert}, // 客户端身份，用于 mTLS
+		RootCAs:      caPool,                        // 服务端身份验证（由 CA 签发）
+		ServerName:   "localhost",                   // 必须与 server.crt CN 或 SAN 匹配
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	creds := credentials.NewTLS(tlsConfig)
 
-	// 🔒 建立加密连接
+	// ✅ 4. 建立 gRPC 加密连接
 	conn, err := grpc.Dial("127.0.0.1:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("❌ Failed to connect: %v", err)
@@ -49,11 +50,11 @@ func main() {
 
 	client := proto.NewJobServiceClient(conn)
 
-	// 创建认证 context
+	// ✅ 5. 创建附带认证的 context
 	ctx, cancel := clientutil.CreateContext("admin", "admin")
 	defer cancel()
 
-	// ✅ Step 1: Run job
+	// 🎯 Step 1: Run job
 	runResp, err := client.Run(ctx, &proto.RunRequest{
 		Cmd:  "sleep 2",
 		Name: "SleepJob",
@@ -63,7 +64,7 @@ func main() {
 	}
 	log.Printf("✅ Run: session_id=%s, status=%s", runResp.GetSessionId(), runResp.GetStatus())
 
-	// ✅ Step 2: 等待 1 秒后查询
+	// ⏳ Step 2: 查询状态
 	time.Sleep(1 * time.Second)
 	queryResp, err := client.Query(ctx, &proto.QueryRequest{
 		SessionId: runResp.GetSessionId(),
@@ -77,7 +78,7 @@ func main() {
 		queryResp.GetErrorMsg(),
 	)
 
-	// ✅ Step 3: List 所有 job
+	// 📋 Step 3: 列出全部任务
 	listResp, err := client.List(ctx, &proto.ListRequest{})
 	if err != nil {
 		log.Fatalf("❌ List error: %v", err)

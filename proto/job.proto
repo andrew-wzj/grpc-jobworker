@@ -10,6 +10,7 @@ service JobService {
   rpc Stop (JobRequest) returns (StatusReply);
   rpc Query (JobRequest) returns (JobStatus);
   rpc List (Empty) returns (JobStatusList);
+  rpc StreamOutput (StreamRequest) returns (stream StreamReply);
 }
 
 // 通用 Request
@@ -56,3 +57,13 @@ message Job {
 
 // 空请求结构（用于 List）
 message Empty {}
+
+// ✅ StreamOutput 所需的消息
+message StreamRequest {
+  string session_id = 1;
+}
+
+message StreamReply {
+  string output = 1;
+  bool is_error = 2;
+}

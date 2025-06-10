@@ -9,7 +9,7 @@ import (
 
 func CreateContext(username, password string) (context.Context, context.CancelFunc) {
 	baseCtx := context.Background()
-	ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 
 	md := metadata.Pairs(
 		"username", username,

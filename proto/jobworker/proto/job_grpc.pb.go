@@ -36,6 +36,7 @@ type JobServiceClient interface {
 	Stop(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*StatusReply, error)
 	Query(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobStatus, error)
 	List(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*JobStatusList, error)
+	// ✅ 添加服务端流式 RPC 正确的位置
 	StreamOutput(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamReply], error)
 }
 
@@ -116,6 +117,7 @@ type JobServiceServer interface {
 	Stop(context.Context, *JobRequest) (*StatusReply, error)
 	Query(context.Context, *JobRequest) (*JobStatus, error)
 	List(context.Context, *Empty) (*JobStatusList, error)
+	// ✅ 添加服务端流式 RPC 正确的位置
 	StreamOutput(*StreamRequest, grpc.ServerStreamingServer[StreamReply]) error
 	mustEmbedUnimplementedJobServiceServer()
 }

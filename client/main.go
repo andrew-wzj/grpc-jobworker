@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"log"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -15,13 +14,13 @@ import (
 )
 
 func main() {
-	// ✅ 1. 加载客户端证书和私钥（client.crt / client.key）
+	// 1. 加载客户端证书和私钥
 	clientCert, err := tls.LoadX509KeyPair("certs/client.crt", "certs/client.key")
 	if err != nil {
 		log.Fatalf("❌ Failed to load client cert/key: %v", err)
 	}
 
-	// ✅ 2. 加载 CA 根证书，用于验证服务端身份
+	// 2. 加载 CA 根证书
 	caCert, err := ioutil.ReadFile("certs/ca.crt")
 	if err != nil {
 		log.Fatalf("❌ Failed to read CA cert: %v", err)
@@ -31,17 +30,17 @@ func main() {
 		log.Fatal("❌ Failed to append CA cert to pool")
 	}
 
-	// ✅ 3. 构造完整 TLS 配置（支持双向验证 mTLS）
+	// 3. 构造 TLS 配置
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{clientCert}, // 客户端身份，用于 mTLS
-		RootCAs:      caPool,                        // 服务端身份验证（由 CA 签发）
-		ServerName:   "localhost",                   // 必须与 server.crt CN 或 SAN 匹配
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      caPool,
+		ServerName:   "localhost",
 		MinVersion:   tls.VersionTLS12,
 	}
 
 	creds := credentials.NewTLS(tlsConfig)
 
-	// ✅ 4. 建立 gRPC 加密连接
+	// 4. 建立 gRPC 加密连接
 	conn, err := grpc.Dial("127.0.0.1:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("❌ Failed to connect: %v", err)
@@ -50,41 +49,43 @@ func main() {
 
 	client := proto.NewJobServiceClient(conn)
 
-	// ✅ 5. 创建附带认证的 context
+	// 5. 创建带身份的 context（mock 密码验证保留）
 	ctx, cancel := clientutil.CreateContext("admin", "admin")
 	defer cancel()
 
-	// 🎯 Step 1: Run job
+	// Step 1: Run job
 	runResp, err := client.Run(ctx, &proto.RunRequest{
-		Cmd:  "sleep 2",
-		Name: "SleepJob",
+		Cmd:  "for i in {1..5}; do echo line $i; sleep 1; done",
+		Name: "StreamTest",
 	})
 	if err != nil {
 		log.Fatalf("❌ Run error: %v", err)
 	}
 	log.Printf("✅ Run: session_id=%s, status=%s", runResp.GetSessionId(), runResp.GetStatus())
 
-	// ⏳ Step 2: 查询状态
-	time.Sleep(1 * time.Second)
-	queryResp, err := client.Query(ctx, &proto.QueryRequest{
-		SessionId: runResp.GetSessionId(),
-	})
+	// Step 2: Stream output
+	stream, err := client.StreamOutput(ctx, &proto.StreamRequest{SessionId: runResp.GetSessionId()})
 	if err != nil {
-		log.Fatalf("❌ Query error: %v", err)
+		log.Fatalf("❌ Stream error: %v", err)
 	}
-	log.Printf("🔍 Query: id=%s, status=%s, error=%s",
-		queryResp.GetSessionId(),
-		queryResp.GetStatus(),
-		queryResp.GetErrorMsg(),
-	)
 
-	// 📋 Step 3: 列出全部任务
-	listResp, err := client.List(ctx, &proto.ListRequest{})
+	log.Println("📡 Streaming output:")
+	for {
+		reply, err := stream.Recv()
+		if err != nil {
+			log.Printf("📴 Stream ended: %v", err)
+			break
+		}
+		log.Printf("🪵 %s", reply.GetOutput())
+	}
+
+	// Step 3: List all jobs
+	listResp, err := client.List(ctx, &proto.Empty{})
 	if err != nil {
 		log.Fatalf("❌ List error: %v", err)
 	}
 	log.Println("📋 List of jobs:")
-	for _, job := range listResp.Jobs {
-		log.Printf("🧾 [%s] %s - %s", job.SessionId, job.Status, job.ErrorMsg)
+	for _, job := range listResp.GetJobs() {
+		log.Printf("🧾 [%s] %s - %s", job.GetJob().GetJobId(), job.GetStatus(), job.GetErrorMsg())
 	}
 }

@@ -27,7 +27,7 @@ func TestJobServer_RunQueryStopList(t *testing.T) {
 	}
 
 	// 2️⃣ 测试 Query（立即查可能未完成）
-	queryResp, err := server.Query(ctx, &proto.QueryRequest{
+	queryResp, err := server.Query(ctx, &proto.JobRequest{
 		SessionId: runResp.SessionId,
 	})
 	if err != nil {
@@ -39,13 +39,13 @@ func TestJobServer_RunQueryStopList(t *testing.T) {
 
 	// 3️⃣ 等待 1.2s，再查一次状态
 	time.Sleep(1200 * time.Millisecond)
-	queryResp, _ = server.Query(ctx, &proto.QueryRequest{SessionId: runResp.SessionId})
+	queryResp, _ = server.Query(ctx, &proto.JobRequest{SessionId: runResp.SessionId})
 	if queryResp.Status != "Completed" {
 		t.Errorf("Expected Completed, got %s", queryResp.Status)
 	}
 
 	// 4️⃣ 测试 List
-	listResp, err := server.List(ctx, &proto.ListRequest{})
+	listResp, err := server.List(ctx, &proto.Empty{})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestJobServer_RunQueryStopList(t *testing.T) {
 	}
 
 	// 5️⃣ 测试 Stop（虽然已完成）
-	stopResp, err := server.Stop(ctx, &proto.StopRequest{
+	stopResp, err := server.Stop(ctx, &proto.JobRequest{
 		SessionId: runResp.SessionId,
 	})
 	if err != nil {

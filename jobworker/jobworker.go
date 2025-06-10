@@ -1,7 +1,9 @@
 package jobworker
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,14 +16,15 @@ import (
 
 // JobSession represents a single job command execution
 type JobSession struct {
-	ID        string
-	Name      string
-	CmdStr    string
-	Cmd       *exec.Cmd
-	Status    string
-	ErrorMsg  string
-	StartTime time.Time
-	Duration  time.Duration
+	ID         string
+	Name       string
+	CmdStr     string
+	Cmd        *exec.Cmd
+	Status     string
+	ErrorMsg   string
+	StartTime  time.Time
+	Duration   time.Duration
+	OutputChan chan string
 }
 
 // JobWorker manages multiple jobs concurrently
@@ -43,14 +46,27 @@ func (jw *JobWorker) Run(cmdStr string, name string) (string, error) {
 	sessionID := fullID[len(fullID)-6:]
 	cmd := exec.Command("bash", "-c", cmdStr)
 
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to get stdout: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to get stderr: %v", err)
+	}
+
+	outputChan := make(chan string, 100)
+
 	job := &JobSession{
-		ID:        sessionID,
-		Name:      name,
-		CmdStr:    cmdStr,
-		Cmd:       cmd,
-		Status:    "Running",
-		ErrorMsg:  "",
-		StartTime: time.Now(),
+		ID:         sessionID,
+		Name:       name,
+		CmdStr:     cmdStr,
+		Cmd:        cmd,
+		Status:     "Running",
+		ErrorMsg:   "",
+		StartTime:  time.Now(),
+		OutputChan: outputChan,
 	}
 
 	// Try to parse estimated duration from "sleep N"
@@ -67,7 +83,7 @@ func (jw *JobWorker) Run(cmdStr string, name string) (string, error) {
 	jw.Jobs[sessionID] = job
 	jw.mu.Unlock()
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		jw.mu.Lock()
 		job.Status = "Failed"
@@ -76,11 +92,16 @@ func (jw *JobWorker) Run(cmdStr string, name string) (string, error) {
 		return "", err
 	}
 
+	// 实时读取 stdout 和 stderr
+	go streamOutput(stdoutPipe, outputChan, false)
+	go streamOutput(stderrPipe, outputChan, true)
+
 	go func() {
 		err := cmd.Wait()
 
 		jw.mu.Lock()
 		defer jw.mu.Unlock()
+		defer close(outputChan) // 关闭输出通道以通知 gRPC 客户端结束
 
 		if job.Status == "Stopped" {
 			return
@@ -162,4 +183,16 @@ func buildProgressBar(p float64) string {
 		filled = length
 	}
 	return fmt.Sprintf("[%s%s] %3.0f%%", strings.Repeat("▓", filled), strings.Repeat("░", length-filled), p*100)
+}
+
+func streamOutput(pipe io.ReadCloser, outputChan chan<- string, isErr bool) {
+	scanner := bufio.NewScanner(pipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if isErr {
+			outputChan <- "[stderr] " + line
+		} else {
+			outputChan <- line
+		}
+	}
 }

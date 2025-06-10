@@ -20,6 +20,38 @@ Submit shell commands, query their status, stop them, or list all—fully asynch
 
 
 ---
+🔧 Features
+Run a shell command via gRPC and get a unique session ID
+
+Query job status using the session ID
+
+Stop a running command before it finishes
+
+List all jobs with status and error info
+
+Secure communication with TLS / mTLS and metadata-based auth
+
+Simple logging and visual progress bars in the terminal
+
+📁 Technologies
+Go 1.20+
+
+gRPC (with protobuf)
+
+openssl (for generating TLS certs)
+
+grpcurl (for testing)
+
+Standard Go exec, sync, and context packages
+
+💡 Use Cases
+🧪 Teaching or learning gRPC/mTLS/auth
+
+🛠️ Lightweight job runner for CI, devops, or scripting tasks
+
+🔒 Demoing secure RPC patterns in a Go environment
+
+🧰 Foundation for building a distributed task execution platform
 
 ## 🚀 Getting Started
 

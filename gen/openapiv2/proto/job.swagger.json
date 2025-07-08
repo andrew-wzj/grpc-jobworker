@@ -1,0 +1,292 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/job.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "JobService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/jobs": {
+      "get": {
+        "operationId": "JobService_List",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoJobStatusList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "JobService"
+        ]
+      },
+      "post": {
+        "operationId": "JobService_Run",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoRunReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protoRunRequest"
+            }
+          }
+        ],
+        "tags": [
+          "JobService"
+        ]
+      }
+    },
+    "/v1/jobs/{sessionId}": {
+      "get": {
+        "operationId": "JobService_Query",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoJobStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "JobService"
+        ]
+      }
+    },
+    "/v1/jobs/{sessionId}/stop": {
+      "post": {
+        "operationId": "JobService_Stop",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoStatusReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "JobService"
+        ]
+      }
+    },
+    "/v1/jobs/{sessionId}/stream": {
+      "get": {
+        "operationId": "JobService_StreamOutput",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/protoStreamReply"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of protoStreamReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "JobService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protoJob": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "cmd": {
+          "type": "string"
+        }
+      },
+      "title": "✅ Job 描述"
+    },
+    "protoJobStatus": {
+      "type": "object",
+      "properties": {
+        "job": {
+          "$ref": "#/definitions/protoJob"
+        },
+        "status": {
+          "type": "string"
+        },
+        "errorMsg": {
+          "type": "string"
+        },
+        "isRunning": {
+          "type": "boolean"
+        }
+      },
+      "title": "✅ 查询单个任务状态"
+    },
+    "protoJobStatusList": {
+      "type": "object",
+      "properties": {
+        "jobs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protoJobStatus"
+          }
+        }
+      },
+      "title": "✅ 多个任务状态"
+    },
+    "protoRunReply": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "✅ Run 回复"
+    },
+    "protoRunRequest": {
+      "type": "object",
+      "properties": {
+        "cmd": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "title": "✅ Run 请求"
+    },
+    "protoStatusReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "✅ 停止任务状态回复"
+    },
+    "protoStreamReply": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "string"
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "title": "✅ 流式输出响应"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

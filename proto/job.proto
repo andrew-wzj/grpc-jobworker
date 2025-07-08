@@ -4,38 +4,68 @@ package proto;
 
 option go_package = "jobworker/proto";
 
-// gRPC Service 定义
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/api/http.proto";
+
+
+// ✅ gRPC + HTTP 网关服务定义
 service JobService {
-  rpc Run (RunRequest) returns (RunReply);
-  rpc Stop (JobRequest) returns (StatusReply);
-  rpc Query (JobRequest) returns (JobStatus);
-  rpc List (Empty) returns (JobStatusList);
-  rpc StreamOutput (StreamRequest) returns (stream StreamReply);
+  rpc Run (RunRequest) returns (RunReply) {
+    option (google.api.http) = {
+      post: "/v1/jobs"
+      body: "*"
+    };
+  }
+
+  rpc Stop (JobRequest) returns (StatusReply) {
+    option (google.api.http) = {
+      post: "/v1/jobs/{session_id}/stop"
+    };
+  }
+
+  rpc Query (JobRequest) returns (JobStatus) {
+    option (google.api.http) = {
+      get: "/v1/jobs/{session_id}"
+    };
+  }
+
+  rpc List (Empty) returns (JobStatusList) {
+    option (google.api.http) = {
+      get: "/v1/jobs"
+    };
+  }
+
+  rpc StreamOutput (StreamRequest) returns (stream StreamReply) {
+    option (google.api.http) = {
+      get: "/v1/jobs/{session_id}/stream"
+    };
+  }
 }
 
-// 通用 Request
+// ✅ 通用请求结构
 message JobRequest {
   string session_id = 1;
 }
 
-// Run 请求
+// ✅ Run 请求
 message RunRequest {
   string cmd = 1;
   string name = 2;
 }
 
-// Run 回复
+// ✅ Run 回复
 message RunReply {
   string session_id = 1;
   string status = 2;
 }
 
-// 通用状态回复（可用于 Stop 等）
+// ✅ 停止任务状态回复
 message StatusReply {
   string status = 1;
 }
 
-// 查询单个任务状态
+// ✅ 查询单个任务状态
 message JobStatus {
   Job job = 1;
   string status = 2;
@@ -43,26 +73,27 @@ message JobStatus {
   bool is_running = 4;
 }
 
-// 多个任务状态
+// ✅ 多个任务状态
 message JobStatusList {
   repeated JobStatus jobs = 1;
 }
 
-// 基本 Job 结构
+// ✅ Job 描述
 message Job {
   string job_id = 1;
   string name = 2;
   string cmd = 3;
 }
 
-// 空请求结构（用于 List）
+// ✅ 空消息结构
 message Empty {}
 
-// ✅ StreamOutput 所需的消息
+// ✅ 流式输出请求
 message StreamRequest {
   string session_id = 1;
 }
 
+// ✅ 流式输出响应
 message StreamReply {
   string output = 1;
   bool is_error = 2;

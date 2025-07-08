@@ -1,93 +1,116 @@
 package main
 
 import (
-	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
+	"fmt"
+	"jobworker/db"
 	"jobworker/jobworker"
-	"jobworker/proto"
-	"log"
-	"net"
+	"os"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
-// ...保持你的 authInterceptor 不变...
+func main() {
+	// 初始化数据库
+	db.Init()
 
-// 拦截器：验证并打印用户名和密码
-func authInterceptor(
-	ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler,
-) (interface{}, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		log.Println("🎯 --- New Request ---")
-		log.Printf("🧾 Raw metadata: %+v", md)
+	// 创建 JobWorker 实例
+	worker := jobworker.NewJobWorker()
 
-		username := md["username"]
-		password := md["password"]
-
-		// 校验用户名和密码是否存在并正确
-		if len(username) == 0 || len(password) == 0 ||
-			username[0] != "admin" || password[0] != "admin" {
-			log.Printf("🚫 认证失败: username=%v, password=%v", username, password)
-			return nil, status.Error(codes.Unauthenticated, "invalid username or password")
+	// CLI 模式
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "run":
+			if len(os.Args) < 4 {
+				fmt.Println("Usage: jobrunner run <name> <cmd>")
+				return
+			}
+			id, err := worker.Run(os.Args[3], os.Args[2])
+			if err != nil {
+				fmt.Printf("❌ %v\n", err)
+			} else {
+				fmt.Printf("🚀 Job started with ID: %s\n", id)
+			}
+		case "stop":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: jobrunner stop <jobID>")
+				return
+			}
+			err := worker.Stop(os.Args[2])
+			if err != nil {
+				fmt.Printf("❌ %v\n", err)
+			} else {
+				fmt.Println("🛑 Job stopped.")
+			}
+		case "list":
+			jobs, err := worker.List()
+			if err != nil {
+				fmt.Printf("❌ Failed to list jobs: %v\n", err)
+				return
+			}
+			for _, job := range jobs {
+				fmt.Printf("📝 [%s] %s - %s\n", job.ID, job.Name, job.Status)
+			}
+		case "log":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: jobrunner log <jobID>")
+				return
+			}
+			err := worker.ShowLog(os.Args[2])
+			if err != nil {
+				fmt.Printf("❌ %v\n", err)
+			}
+		case "serve":
+			startHTTPServer(worker)
+		default:
+			fmt.Println("Unknown command. Available: run, stop, list, log, serve")
 		}
-
-		log.Printf("🔐 认证通过: username=%s", username[0])
-	} else {
-		log.Println("⚠️ 没有 metadata")
-		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+		return
 	}
 
-	// 继续处理请求
-	return handler(ctx, req)
+	// 默认运行 HTTP Server
+	startHTTPServer(worker)
 }
 
-func main() {
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("❌ Failed to listen: %v", err)
-	}
+// 启动 HTTP API Server
+func startHTTPServer(worker *jobworker.JobWorker) {
+	r := gin.Default()
+	r.Use(cors.Default()) // 支持跨域请求
 
-	// Load server cert and key
-	cert, err := tls.LoadX509KeyPair("certs/server.crt", "certs/server.key")
-	if err != nil {
-		log.Fatalf("❌ Failed to load server cert/key: %v", err)
-	}
+	// 注册 API 路由
+	jobworker.SetupHTTPRoutes(r, worker)
 
-	// Load CA to verify client
-	caCert, err := ioutil.ReadFile("certs/ca.crt")
-	if err != nil {
-		log.Fatalf("❌ Failed to read CA cert: %v", err)
-	}
-	caPool := x509.NewCertPool()
-	caPool.AppendCertsFromPEM(caCert)
-
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequireAndVerifyClientCert, // enforce mTLS
-		ClientCAs:    caPool,
+	// 健康检查
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	grpcServer := grpc.NewServer(
-		grpc.Creds(creds),
-		grpc.UnaryInterceptor(authInterceptor),
-	)
+	// 提供静态文件（前端页面）
+	r.Static("/web", "./web")
 
-	worker := jobworker.NewJobWorker()
-	server := jobworker.NewJobServer(worker)
-	proto.RegisterJobServiceServer(grpcServer, server)
+	// 🚫 避免重复路由定义
+	// 页面跳转：例如 /viewlog/abc123 -> /web/log.html?id=abc123
+	r.GET("/viewlog/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		c.Redirect(302, "/web/log.html?id="+id)
+	})
 
-	log.Println("🚀 gRPC JobServer running at :50051 (mTLS + auth enabled)")
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("❌ Failed to serve: %v", err)
-	}
+	// 提供日志内容 API（前端 JS 用于读取日志）
+	r.GET("/api/log/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		logPath, err := db.GetLogPath(id)
+		if err != nil {
+			c.String(404, "Log not found")
+			return
+		}
+		content, err := os.ReadFile(logPath)
+		if err != nil {
+			c.String(500, "Failed to read log")
+			return
+		}
+		c.String(200, string(content))
+	})
+
+	fmt.Println("🚦 HTTP API server running at http://localhost:8080")
+	r.Run(":8080")
 }

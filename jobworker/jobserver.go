@@ -2,104 +2,84 @@ package jobworker
 
 import (
 	"context"
+	"net/http"
+	"os"
+
+	"jobworker/db"
 	"jobworker/proto"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/gin-gonic/gin"
 )
 
-// JobServer implements the gRPC JobServiceServer interface
+func SetupHTTPRoutes(r *gin.Engine, worker *JobWorker) {
+	r.POST("/run", func(c *gin.Context) {
+		var req struct {
+			Name string `json:"name"`
+			Cmd  string `json:"cmd"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		sessionID, err := worker.Run(req.Name, req.Cmd)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"session_id": sessionID})
+	})
+
+	r.POST("/stop", func(c *gin.Context) {
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		err := worker.Stop(req.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "job stopped"})
+	})
+
+	r.GET("/list", func(c *gin.Context) {
+		jobs := db.ListJobsWithStatus()
+		c.JSON(http.StatusOK, jobs)
+	})
+
+	r.GET("/log/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		logPath, err := db.GetLogPath(id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "log path not found"})
+			return
+		}
+
+		content, err := os.ReadFile(logPath)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "log not found"})
+			return
+		}
+
+		c.Data(http.StatusOK, "text/plain", content)
+	})
+}
+
 type JobServer struct {
-	proto.UnimplementedJobServiceServer
-	Manager *JobWorker
+	Worker *JobWorker
 }
 
-func NewJobServer(manager *JobWorker) *JobServer {
-	return &JobServer{Manager: manager}
+func (j *JobServer) Run(ctx context.Context, request *proto.RunRequest) (any, any) {
+	panic("unimplemented")
 }
 
-func (s *JobServer) Run(ctx context.Context, req *proto.RunRequest) (*proto.RunReply, error) {
-	sessionID, err := s.Manager.Run(req.Cmd, req.Name)
-	status := "Started"
-	if err != nil {
-		status = "Failed: " + err.Error()
-	}
-	return &proto.RunReply{
-		SessionId: sessionID,
-		Status:    status,
-	}, nil
-}
-
-func (s *JobServer) Stop(ctx context.Context, req *proto.JobRequest) (*proto.StatusReply, error) {
-	err := s.Manager.Stop(req.SessionId)
-	if err != nil {
-		return &proto.StatusReply{
-			Status: "Failed: " + err.Error(),
-		}, nil
-	}
-	return &proto.StatusReply{
-		Status: "Stopped",
-	}, nil
-}
-
-func (s *JobServer) Query(ctx context.Context, req *proto.JobRequest) (*proto.JobStatus, error) {
-	s.Manager.mu.Lock()
-	defer s.Manager.mu.Unlock()
-
-	job, exists := s.Manager.Jobs[req.SessionId]
-	if !exists {
-		return &proto.JobStatus{
-			Status:   "Not Found",
-			ErrorMsg: "No job found with that ID",
-		}, nil
-	}
-
-	return &proto.JobStatus{
-		Job: &proto.Job{
-			JobId: job.ID,
-			Name:  job.Name,
-			Cmd:   job.CmdStr,
-		},
-		Status:    job.Status,
-		ErrorMsg:  job.ErrorMsg,
-		IsRunning: job.Status == "Running",
-	}, nil
-}
-
-func (s *JobServer) List(ctx context.Context, req *proto.Empty) (*proto.JobStatusList, error) {
-	s.Manager.mu.Lock()
-	defer s.Manager.mu.Unlock()
-
-	var all []*proto.JobStatus
-	for _, job := range s.Manager.Jobs {
-		all = append(all, &proto.JobStatus{
-			Job: &proto.Job{
-				JobId: job.ID,
-				Name:  job.Name,
-				Cmd:   job.CmdStr,
-			},
-			Status:    job.Status,
-			ErrorMsg:  job.ErrorMsg,
-			IsRunning: job.Status == "Running",
-		})
-	}
-
-	return &proto.JobStatusList{Jobs: all}, nil
-}
-
-func (s *JobServer) StreamOutput(req *proto.StreamRequest, stream proto.JobService_StreamOutputServer) error {
-	s.Manager.mu.Lock()
-	job, exists := s.Manager.Jobs[req.SessionId]
-	s.Manager.mu.Unlock()
-	if !exists {
-		return status.Error(codes.NotFound, "Job not found")
-	}
-
-	for output := range job.OutputChan {
-		stream.Send(&proto.StreamReply{
-			Output:  output,
-			IsError: false,
-		})
-	}
-	return nil
+func NewJobServer(worker *JobWorker) *JobServer {
+	return &JobServer{Worker: worker}
 }

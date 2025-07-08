@@ -7,36 +7,26 @@ Submit shell commands, query their status, stop them, or list all—fully asynch
 🚀 Getting Started
 1. Clone the Repo
 ```bash
-复制
-编辑
 git clone https://github.com/andrew-wzj/grpc-jobworker.git
 cd grpc-jobworker
 go mod tidy
 ```
 2. Generate gRPC Code
 ```bash
-复制
-编辑
 protoc --go_out=. --go-grpc_out=. proto/job.proto
 或者使用 buf：
 ```
 
 ```bash
-复制
-编辑
 buf generate
 ```
 3. Run the Server
 ```bash
-复制
-编辑
 go run ./server/main.go serve
 ```
 默认监听地址：
 
 ```bash
-复制
-编辑
 http://localhost:8080
 ```
 4. Run a Job via CLI

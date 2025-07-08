@@ -3,92 +3,515 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Job Log Viewer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <title>Job Log Viewer - Enhanced</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    body {
+    * {
       margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
       padding: 2rem;
-      font-family: 'Roboto', sans-serif;
-      background-color: #f5f5f5;
     }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    .container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1rem;
-      max-width: 1000px;
+    
+    .main-container {
+      max-width: 1400px;
       margin: 0 auto;
     }
-    .card {
-      background-color: #fff;
+    
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      color: white;
+    }
+    
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+    
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .search-container {
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: none;
       border-radius: 10px;
-      padding: 1.5rem;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s ease;
+      transition: all 0.3s ease;
     }
-    .card:hover {
-      transform: translateY(-4px);
+    
+    .search-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
     }
-    .job-id {
+    
+    .filter-container {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .filter-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+    
+    .filter-btn:hover, .filter-btn.active {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 1.5rem;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
       font-size: 0.9rem;
       color: #666;
+      font-weight: 500;
     }
+    
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    
+    .job-id {
+      font-size: 0.85rem;
+      color: #888;
+      font-weight: 500;
+      background: #f8f9fa;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+    }
+    
+    .status-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status-running {
+      background: #fff3cd;
+      color: #856404;
+      animation: pulse 2s infinite;
+    }
+    
+    .status-pending {
+      background: #e2e3e5;
+      color: #6c757d;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
     .job-name {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #007bff;
-      margin: 0.5rem 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
     }
-    .job-status {
-      font-size: 0.95rem;
-      color: #444;
+    
+    .job-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
     }
-    .log-link {
-      display: inline-block;
-      margin-top: 1rem;
-      text-decoration: none;
-      color: #fff;
-      background-color: #007bff;
-      padding: 0.4rem 1rem;
-      border-radius: 5px;
+    
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .detail-label {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+    
+    .detail-value {
       font-size: 0.9rem;
+      color: #555;
+      font-weight: 500;
     }
-    .log-link:hover {
-      background-color: #0056b3;
+    
+    .card-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+    
+    .action-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #f8f9fa;
+      color: #6c757d;
+      border: 1px solid #e9ecef;
+    }
+    
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: white;
+      grid-column: 1 / -1;
+    }
+    
+    .empty-state h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      opacity: 0.9;
+    }
+    
+    .empty-state p {
+      opacity: 0.7;
+    }
+    
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+      grid-column: 1 / -1;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+      
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .filter-container {
+        justify-content: center;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>📋 All Job Logs</h1>
-  <div class="container" id="jobContainer">
-    <!-- Cards will be populated by JS -->
+  <div class="main-container">
+    <div class="header">
+      <h1>🚀 Job Monitoring Dashboard</h1>
+      <p>Real-time CI/CD pipeline monitoring and log management</p>
+    </div>
+    
+    <div class="controls">
+      <div class="search-container">
+        <input type="text" class="search-input" placeholder="Search jobs by name or ID..." id="searchInput">
+      </div>
+      <div class="filter-container">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="success">Success</button>
+        <button class="filter-btn" data-filter="failed">Failed</button>
+        <button class="filter-btn" data-filter="running">Running</button>
+        <button class="filter-btn" data-filter="pending">Pending</button>
+      </div>
+    </div>
+    
+    <div class="stats" id="statsContainer">
+      <div class="stat-card">
+        <div class="stat-number" id="totalJobs">0</div>
+        <div class="stat-label">Total Jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="successJobs">0</div>
+        <div class="stat-label">Successful</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="failedJobs">0</div>
+        <div class="stat-label">Failed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="runningJobs">0</div>
+        <div class="stat-label">Running</div>
+      </div>
+    </div>
+    
+    <div class="container" id="jobContainer">
+      <div class="loading">
+        <div class="spinner"></div>
+      </div>
+    </div>
   </div>
+
   <script>
+    let allJobs = [];
+    let currentFilter = 'all';
+    
+    // Mock data for demonstration
+    const mockJobs = [
+      { ID: 'job-001', Name: 'Frontend Build Pipeline', Status: 'success', StartTime: '2024-01-15 10:30:00', Duration: '2m 45s', Branch: 'main' },
+      { ID: 'job-002', Name: 'Backend API Tests', Status: 'running', StartTime: '2024-01-15 10:35:00', Duration: '1m 23s', Branch: 'develop' },
+      { ID: 'job-003', Name: 'Database Migration', Status: 'failed', StartTime: '2024-01-15 10:20:00', Duration: '5m 12s', Branch: 'main' },
+      { ID: 'job-004', Name: 'Security Scan', Status: 'pending', StartTime: '2024-01-15 10:40:00', Duration: '---', Branch: 'feature/auth' },
+      { ID: 'job-005', Name: 'Deploy to Staging', Status: 'success', StartTime: '2024-01-15 10:15:00', Duration: '3m 28s', Branch: 'main' },
+      { ID: 'job-006', Name: 'Load Testing', Status: 'running', StartTime: '2024-01-15 10:38:00', Duration: '4m 15s', Branch: 'performance' }
+    ];
+
     async function loadJobs() {
       try {
-        const res = await fetch("/list");
-        const jobs = await res.json();
-        const container = document.getElementById("jobContainer");
-
-        jobs.forEach(job => {
-          const div = document.createElement("div");
-          div.className = "card";
-          div.innerHTML = `
-            <div class="job-id">ID: ${job.ID}</div>
-            <div class="job-name">${job.Name}</div>
-            <div class="job-status">Status: ${job.Status}</div>
-            <a class="log-link" href="/log/${job.ID}" target="_blank">View Log</a>
-          `;
-          container.appendChild(div);
-        });
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // In real implementation, replace with:
+        // const res = await fetch("/list");
+        // const jobs = await res.json();
+        allJobs = mockJobs;
+        
+        updateStats();
+        renderJobs();
       } catch (e) {
         console.error("Failed to load jobs:", e);
+        document.getElementById("jobContainer").innerHTML = `
+          <div class="empty-state">
+            <h3>Failed to load jobs</h3>
+            <p>Please check your connection and try again.</p>
+          </div>
+        `;
       }
     }
+
+    function updateStats() {
+      const stats = allJobs.reduce((acc, job) => {
+        acc.total++;
+        acc[job.Status] = (acc[job.Status] || 0) + 1;
+        return acc;
+      }, { total: 0, success: 0, failed: 0, running: 0, pending: 0 });
+
+      document.getElementById('totalJobs').textContent = stats.total;
+      document.getElementById('successJobs').textContent = stats.success || 0;
+      document.getElementById('failedJobs').textContent = stats.failed || 0;
+      document.getElementById('runningJobs').textContent = stats.running || 0;
+    }
+
+    function renderJobs() {
+      const container = document.getElementById("jobContainer");
+      const filteredJobs = filterJobs();
+      
+      if (filteredJobs.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>No jobs found</h3>
+            <p>Try adjusting your search or filter criteria.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filteredJobs.map(job => `
+        <div class="card">
+          <div class="card-header">
+            <div class="job-id">${job.ID}</div>
+            <div class="status-badge status-${job.Status}">${job.Status}</div>
+          </div>
+          <div class="job-name">${job.Name}</div>
+          <div class="job-details">
+            <div class="detail-item">
+              <div class="detail-label">Start Time</div>
+              <div class="detail-value">${job.StartTime}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Duration</div>
+              <div class="detail-value">${job.Duration}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Branch</div>
+              <div class="detail-value">${job.Branch}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Status</div>
+              <div class="detail-value">${job.Status}</div>
+            </div>
+          </div>
+          <div class="card-actions">
+            <a class="action-btn btn-secondary" href="/details/${job.ID}">Details</a>
+            <a class="action-btn btn-primary" href="/log/${job.ID}" target="_blank">View Log</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterJobs() {
+      let filtered = allJobs;
+      
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(job => job.Status === currentFilter);
+      }
+      
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      if (searchTerm) {
+        filtered = filtered.filter(job => 
+          job.Name.toLowerCase().includes(searchTerm) || 
+          job.ID.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      return filtered;
+    }
+
+    // Event listeners
+    document.getElementById('searchInput').addEventListener('input', renderJobs);
+    
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentFilter = e.target.dataset.filter;
+        renderJobs();
+      });
+    });
+
+    // Initialize
     loadJobs();
   </script>
 </body>

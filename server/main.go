@@ -84,6 +84,10 @@ func startHTTPServer(worker *jobworker.JobWorker) {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
+	// 设置默认首页（打开 / 自动跳到 index.html）
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(302, "/web/index.html")
+	})
 
 	// 提供静态文件（前端页面）
 	r.Static("/web", "./web")

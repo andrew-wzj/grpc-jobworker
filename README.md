@@ -1,9 +1,60 @@
-# 🚀 gRPC JobWorker
+# gRPC JobWorker
 
 A lightweight gRPC-based job management system in Go. 
 Submit shell commands, query their status, stop them, or list all—fully asynchronous, metadata-authenticated, and ready for TLS upgrade.
 
 ---
+🚀 Getting Started
+1. Clone the Repo
+```bash
+复制
+编辑
+git clone https://github.com/andrew-wzj/grpc-jobworker.git
+cd grpc-jobworker
+go mod tidy
+```
+2. Generate gRPC Code
+```bash
+复制
+编辑
+protoc --go_out=. --go-grpc_out=. proto/job.proto
+或者使用 buf：
+```
+
+```bash
+复制
+编辑
+buf generate
+```
+3. Run the Server
+```bash
+复制
+编辑
+go run ./server/main.go serve
+```
+默认监听地址：
+
+```bash
+复制
+编辑
+http://localhost:8080
+```
+4. Run a Job via CLI
+```bash
+./jobrunner run "test-job" "echo hello world"
+```
+6. View Logs in Web UI
+打开浏览器访问：
+
+```bash
+http://localhost:8080/
+```
+或查看某任务日志：
+
+```bash
+http://localhost:8080/log/<job_id>
+```
+
 
 ## 🔧 Features
 
@@ -70,45 +121,14 @@ openssl req -new -key certs/server.key -subj "/CN=localhost" -out certs/server.c
 # [alt_names]
 # DNS.1 = localhost
 
-openssl x509 -req -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial \
+openssl x509 -req -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial \\
 -out certs/server.crt -days 3650 -extensions req_ext -extfile certs/server.cnf
 
 # 3. 生成客户端证书
 openssl genrsa -out certs/client.key 4096
 openssl req -new -key certs/client.key -subj "/CN=jobclient" -out certs/client.csr
-openssl x509 -req -in certs/client.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial \
+openssl x509 -req -in certs/client.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial \\
 -out certs/client.crt -days 3650
+```
 
 
-📁 Technologies
-Go 1.20+
-
-gRPC (with protobuf)
-
-openssl (for generating TLS certs)
-
-grpcurl (for testing)
-
-Standard Go exec, sync, and context packages
-
-💡 Use Cases
-🧪 Teaching or learning gRPC/mTLS/auth
-
-🛠️ Lightweight job runner for CI, devops, or scripting tasks
-
-🔒 Demoing secure RPC patterns in a Go environment
-
-🧰 Foundation for building a distributed task execution platform
-
-
-## 🚀 Getting Started
-
-### 1. Clone the Repo
-
-```bash
-git clone https://github.com/andrew-wzj/grpc-jobworker.git
-cd grpc-jobworker
-go mod tidy
-
-### 2. Generate gRPC Code
-protoc --go_out=. --go-grpc_out=. proto/job.proto

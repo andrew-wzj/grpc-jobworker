@@ -67,9 +67,9 @@ http://localhost:8080/
 - Real-time stats refresh
 - Search, filter, delete, view logs
 
-## 🏗️ System Architecture
+## System Architecture
 
-```mermaid
+```
 graph TD
   subgraph Frontend
     A[Web UI (HTML/JS)]
@@ -81,14 +81,13 @@ graph TD
     E[SQLite DB]
     F[Log Files]
   end
-  A -- HTTP/REST --> C
-  B -- gRPC/REST --> C
-  C -- schedule/status --> D
-  D -- status/log --> E
-  D -- output --> F
-  C -- query/delete --> E
+  A -->|HTTP/REST| C
+  B -->|gRPC/REST| C
+  C -->|schedule/status| D
+  D -->|status/log| E
+  D -->|output| F
+  C -->|query/delete| E
 ```
-
 ---
 
 ## 🗂️ Directory Structure

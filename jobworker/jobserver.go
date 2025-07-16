@@ -70,6 +70,32 @@ func SetupHTTPRoutes(r *gin.Engine, worker *JobWorker) {
 
 		c.Data(http.StatusOK, "text/plain", content)
 	})
+	// 删除 Job（只注册一次，放在主路由下）
+	r.DELETE("/delete/:id", func(c *gin.Context) {
+		id := c.Param("id")
+
+		// 先检查是否可删（不能删正在运行的任务）
+		if err := worker.Delete(id); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// 删除数据库中的 job
+		err := db.DeleteJob(id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete job from DB"})
+			return
+		}
+
+		// 删除 log 文件（如果存在）
+		logPath, err := db.GetLogPath(id)
+		if err == nil {
+			_ = os.Remove(logPath)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "job deleted"})
+	})
+
 }
 
 type JobServer struct {

@@ -1,6 +1,24 @@
 let allJobs = [];
 let currentFilter = 'all';
 
+function normalizeStatus(status) {
+  console.log('[normalizeStatus] 原始:', status);
+  if (!status) return "pending";
+  status = status.toLowerCase();
+  let mapped = status;
+  if (status === "completed" || status === "success") mapped = "success";
+  else if (status === "failed" || status === "fail") mapped = "failed";
+  else if (status === "running") mapped = "running";
+  else if (status === "pending") mapped = "pending";
+  console.log('[normalizeStatus] 归一化:', mapped);
+  return mapped;
+}
+
+function capitalizeStatus(status) {
+  if (!status) return '';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 async function loadJobs() {
     try {
       const res = await fetch("/list");
@@ -9,7 +27,7 @@ async function loadJobs() {
       allJobs = jobs.map(job => ({
         ID: job.id || job.ID || "N/A",
         Name: job.name || job.Name || "Untitled Job",
-        Status: job.status || job.Status || "pending",
+        Status: normalizeStatus(job.status || job.Status || "pending"),
         StartTime: job.start_time || job.StartTime || new Date().toLocaleString(),
         Duration: job.duration || job.Duration || "---",
         Branch: job.branch || job.Branch || "main"
@@ -30,12 +48,13 @@ async function loadJobs() {
   
 
 function updateStats() {
+  console.log('[updateStats] allJobs:', allJobs);
   const stats = allJobs.reduce((acc, job) => {
     acc.total++;
     acc[job.Status] = (acc[job.Status] || 0) + 1;
     return acc;
   }, { total: 0, success: 0, failed: 0, running: 0, pending: 0 });
-
+  console.log('[updateStats] stats:', stats);
   document.getElementById('totalJobs').textContent = stats.total;
   document.getElementById('successJobs').textContent = stats.success || 0;
   document.getElementById('failedJobs').textContent = stats.failed || 0;
@@ -60,7 +79,7 @@ function renderJobs() {
     <div class="card">
       <div class="card-header">
         <div class="job-id">${job.ID}</div>
-        <div class="status-badge status-${job.Status}">${job.Status}</div>
+        <div class="status-badge status-${job.Status}">${capitalizeStatus(job.Status)}</div>
       </div>
       <div class="job-name">${job.Name}</div>
       <div class="job-details">
@@ -78,7 +97,7 @@ function renderJobs() {
         </div>
         <div class="detail-item">
           <div class="detail-label">Status</div>
-          <div class="detail-value">${job.Status}</div>
+          <div class="detail-value">${capitalizeStatus(job.Status)}</div>
         </div>
       </div>
       <div class="card-actions">

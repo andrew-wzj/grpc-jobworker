@@ -28,7 +28,8 @@ func createTables() {
 		name TEXT,
 		cmd TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		output_log_path TEXT
+		output_log_path TEXT,
+		duration TEXT
 	);`
 
 	createStatusTable := `
@@ -49,11 +50,16 @@ func createTables() {
 	}
 }
 
-// addMissingColumns tries to add missing columns like output_log_path
+// addMissingColumns tries to add missing columns like output_log_path and duration
 func addMissingColumns() {
 	_, err := DB.Exec(`ALTER TABLE jobs ADD COLUMN output_log_path TEXT`)
 	if err != nil && err.Error() != "duplicate column name: output_log_path" {
 		log.Printf("⚠️ Could not add output_log_path column: %v\n", err)
+	}
+
+	_, err = DB.Exec(`ALTER TABLE jobs ADD COLUMN duration TEXT`)
+	if err != nil && err.Error() != "duplicate column name: duration" {
+		log.Printf("⚠️ Could not add duration column: %v\n", err)
 	}
 }
 
@@ -74,6 +80,22 @@ func UpdateJobStatus(id, status, errorMsg string, isRunning bool) error {
 			error_msg=excluded.error_msg,
 			updated_at=excluded.updated_at`,
 		id, isRunning, status, errorMsg, time.Now())
+	return err
+}
+
+// UpdateJobStatusWithDuration updates job status and duration
+func UpdateJobStatusWithDuration(id, status, errorMsg string, isRunning bool, duration string) error {
+	_, err := DB.Exec(`
+		UPDATE job_status SET
+			is_running = ?,
+			status = ?,
+			error_msg = ?,
+			updated_at = ?
+		WHERE job_id = ?`, isRunning, status, errorMsg, time.Now(), id)
+	if err != nil {
+		return err
+	}
+	_, err = DB.Exec(`UPDATE jobs SET duration = ? WHERE id = ?`, duration, id)
 	return err
 }
 
@@ -154,4 +176,25 @@ func GetLogPath(jobID string) (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+// DeleteJob removes a job and its status from the database
+func DeleteJob(id string) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`DELETE FROM job_status WHERE job_id = ?`, id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM jobs WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

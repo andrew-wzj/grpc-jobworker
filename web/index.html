@@ -13,10 +13,14 @@
     }
     
     body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #181c2b 0%, #232946 100%);
+      font-family: 'Inter', 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+      color: #eaf0fa;
       min-height: 100vh;
-      padding: 2rem;
+      margin: 0;
+      padding: 0;
+      letter-spacing: 0.01em;
+      overflow-x: hidden;
     }
     
     .main-container {
@@ -336,6 +340,25 @@
         justify-content: center;
       }
     }
+    .dashboard {
+      max-width: 900px;
+      margin: 48px auto 0 auto;
+      padding: 40px 40px 32px 40px;
+      background: rgba(30, 34, 54, 0.7);
+      border-radius: 32px;
+      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.45), 0 1.5px 0 0 #3a7bd5;
+      backdrop-filter: blur(8px);
+      border: 1.5px solid rgba(58,123,213,0.18);
+    }
+    @media (max-width: 1200px) {
+      .dashboard { max-width: 98vw; padding-left: 4vw; padding-right: 4vw; }
+    }
+    @media (max-width: 900px) {
+      .dashboard { padding: 18px 2vw; margin: 18px 1vw 0 1vw; }
+      .stats { flex-direction: column; gap: 18px; }
+      .job-list { flex-direction: column; gap: 18px; }
+      .card { width: 98vw; min-width: 0; }
+    }
   </style>
 </head>
 <body>
@@ -355,6 +378,7 @@
         <button class="filter-btn" data-filter="failed">Failed</button>
         <button class="filter-btn" data-filter="running">Running</button>
         <button class="filter-btn" data-filter="pending">Pending</button>
+          
       </div>
     </div>
     
@@ -365,7 +389,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-number" id="successJobs">0</div>
-        <div class="stat-label">Successful</div>
+        <div class="stat-label">Completed</div>
       </div>
       <div class="stat-card">
         <div class="stat-number" id="failedJobs">0</div>
@@ -384,135 +408,8 @@
     </div>
   </div>
 
-  <script>
-    let allJobs = [];
-    let currentFilter = 'all';
-    
-    // Mock data for demonstration
-    const mockJobs = [
-      { ID: 'job-001', Name: 'Frontend Build Pipeline', Status: 'success', StartTime: '2024-01-15 10:30:00', Duration: '2m 45s', Branch: 'main' },
-      { ID: 'job-002', Name: 'Backend API Tests', Status: 'running', StartTime: '2024-01-15 10:35:00', Duration: '1m 23s', Branch: 'develop' },
-      { ID: 'job-003', Name: 'Database Migration', Status: 'failed', StartTime: '2024-01-15 10:20:00', Duration: '5m 12s', Branch: 'main' },
-      { ID: 'job-004', Name: 'Security Scan', Status: 'pending', StartTime: '2024-01-15 10:40:00', Duration: '---', Branch: 'feature/auth' },
-      { ID: 'job-005', Name: 'Deploy to Staging', Status: 'success', StartTime: '2024-01-15 10:15:00', Duration: '3m 28s', Branch: 'main' },
-      { ID: 'job-006', Name: 'Load Testing', Status: 'running', StartTime: '2024-01-15 10:38:00', Duration: '4m 15s', Branch: 'performance' }
-    ];
-
-    async function loadJobs() {
-      try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // In real implementation, replace with:
-        // const res = await fetch("/list");
-        // const jobs = await res.json();
-        allJobs = mockJobs;
-        
-        updateStats();
-        renderJobs();
-      } catch (e) {
-        console.error("Failed to load jobs:", e);
-        document.getElementById("jobContainer").innerHTML = `
-          <div class="empty-state">
-            <h3>Failed to load jobs</h3>
-            <p>Please check your connection and try again.</p>
-          </div>
-        `;
-      }
-    }
-
-    function updateStats() {
-      const stats = allJobs.reduce((acc, job) => {
-        acc.total++;
-        acc[job.Status] = (acc[job.Status] || 0) + 1;
-        return acc;
-      }, { total: 0, success: 0, failed: 0, running: 0, pending: 0 });
-
-      document.getElementById('totalJobs').textContent = stats.total;
-      document.getElementById('successJobs').textContent = stats.success || 0;
-      document.getElementById('failedJobs').textContent = stats.failed || 0;
-      document.getElementById('runningJobs').textContent = stats.running || 0;
-    }
-
-    function renderJobs() {
-      const container = document.getElementById("jobContainer");
-      const filteredJobs = filterJobs();
-      
-      if (filteredJobs.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <h3>No jobs found</h3>
-            <p>Try adjusting your search or filter criteria.</p>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = filteredJobs.map(job => `
-        <div class="card">
-          <div class="card-header">
-            <div class="job-id">${job.ID}</div>
-            <div class="status-badge status-${job.Status}">${job.Status}</div>
-          </div>
-          <div class="job-name">${job.Name}</div>
-          <div class="job-details">
-            <div class="detail-item">
-              <div class="detail-label">Start Time</div>
-              <div class="detail-value">${job.StartTime}</div>
-            </div>
-            <div class="detail-item">
-              <div class="detail-label">Duration</div>
-              <div class="detail-value">${job.Duration}</div>
-            </div>
-            <div class="detail-item">
-              <div class="detail-label">Branch</div>
-              <div class="detail-value">${job.Branch}</div>
-            </div>
-            <div class="detail-item">
-              <div class="detail-label">Status</div>
-              <div class="detail-value">${job.Status}</div>
-            </div>
-          </div>
-          <div class="card-actions">
-            <a class="action-btn btn-secondary" href="/details/${job.ID}">Details</a>
-            <a class="action-btn btn-primary" href="/log/${job.ID}" target="_blank">View Log</a>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function filterJobs() {
-      let filtered = allJobs;
-      
-      if (currentFilter !== 'all') {
-        filtered = filtered.filter(job => job.Status === currentFilter);
-      }
-      
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      if (searchTerm) {
-        filtered = filtered.filter(job => 
-          job.Name.toLowerCase().includes(searchTerm) || 
-          job.ID.toLowerCase().includes(searchTerm)
-        );
-      }
-      
-      return filtered;
-    }
-
-    // Event listeners
-    document.getElementById('searchInput').addEventListener('input', renderJobs);
-    
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        currentFilter = e.target.dataset.filter;
-        renderJobs();
-      });
-    });
-
-    // Initialize
-    loadJobs();
+  <script src="/web/main.js">
+   
   </script>
 </body>
 </html>

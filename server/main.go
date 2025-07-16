@@ -84,6 +84,7 @@ func startHTTPServer(worker *jobworker.JobWorker) {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
+
 	// 设置默认首页（打开 / 自动跳到 index.html）
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(302, "/web/index.html")
@@ -92,7 +93,6 @@ func startHTTPServer(worker *jobworker.JobWorker) {
 	// 提供静态文件（前端页面）
 	r.Static("/web", "./web")
 
-	// 🚫 避免重复路由定义
 	// 页面跳转：例如 /viewlog/abc123 -> /web/log.html?id=abc123
 	r.GET("/viewlog/:id", func(c *gin.Context) {
 		id := c.Param("id")

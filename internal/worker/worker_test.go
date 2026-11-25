@@ -151,17 +151,13 @@ func TestConcurrencyLimitQueuesJobs(t *testing.T) {
 	w := newTestWorker(t, 2)
 	var ids []string
 	for i := 0; i < 4; i++ {
-		j, err := w.Run("", "sleep 0.5")
+		j, err := w.Run("", "sleep 2")
 		if err != nil {
 			t.Fatal(err)
 		}
 		ids = append(ids, j.ID)
 	}
-	time.Sleep(200 * time.Millisecond)
-	counts := countStatuses(t, w)
-	if counts[store.StatusRunning] != 2 || counts[store.StatusPending] != 2 {
-		t.Fatalf("want 2 running + 2 pending, got %v", counts)
-	}
+	waitForCounts(t, w, 2, 2, 2)
 	for _, id := range ids {
 		if j := waitFinished(t, w, id); j.Status != store.StatusCompleted {
 			t.Fatalf("%s: %s", id, j.Status)
@@ -181,7 +177,7 @@ func TestManyConcurrentJobs(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			j, err := w.Run("", "sleep 1")
+			j, err := w.Run("", "sleep 5")
 			if err != nil {
 				t.Error(err)
 				return
@@ -190,11 +186,7 @@ func TestManyConcurrentJobs(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	time.Sleep(500 * time.Millisecond)
-	counts := countStatuses(t, w)
-	if counts[store.StatusRunning] != 100 || counts[store.StatusPending] != 20 {
-		t.Fatalf("want 100 running + 20 pending, got %v", counts)
-	}
+	waitForCounts(t, w, 100, 100, 20)
 	for _, id := range ids {
 		if j := waitFinished(t, w, id); j.Status != store.StatusCompleted {
 			t.Fatalf("%s: %s", id, j.Status)
@@ -286,6 +278,26 @@ func TestRestartMarksJobsInterrupted(t *testing.T) {
 	if got.Status != store.StatusInterrupted {
 		t.Fatalf("status after restart = %s, want interrupted", got.Status)
 	}
+}
+
+// waitForCounts polls until exactly wantRunning jobs run and wantPending wait.
+// Process start-up is slow on loaded CI machines, so it does not rely on a
+// fixed sleep. It fails at once if more than limit jobs ever run together.
+func waitForCounts(t *testing.T, w *Worker, limit, wantRunning, wantPending int) {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	var counts map[store.Status]int
+	for time.Now().Before(deadline) {
+		counts = countStatuses(t, w)
+		if counts[store.StatusRunning] > limit {
+			t.Fatalf("%d jobs running, limit is %d", counts[store.StatusRunning], limit)
+		}
+		if counts[store.StatusRunning] == wantRunning && counts[store.StatusPending] == wantPending {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("want %d running + %d pending, got %v", wantRunning, wantPending, counts)
 }
 
 func countStatuses(t *testing.T, w *Worker) map[store.Status]int {

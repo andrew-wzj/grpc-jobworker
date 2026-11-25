@@ -1,24 +1,20 @@
-# Go build
-bin/
+# Build output
+/bin/
+/jobworker
 *.exe
-*.out
 *.test
+*.out
 
-# IDEs and editors
+# Runtime data (job database and logs)
+/data/
+
+# Local certificates and keys
+/certs/
+*.key
+*.crt
+
+# Editors and OS
 .vscode/
 .idea/
 *.swp
-
-# Certs and secrets
-certs/
-*.crt
-*.key
-*.csr
-*.srl
-*.cnf
-
-# Logs
-*.log
-
-# Dependency management
-vendor/
+.DS_Store

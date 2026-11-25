@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package jobworker.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/andrew-wzj/grpc-jobworker/gen/jobworker/v1;jobworkerv1";
+
+// JobService runs shell commands as background jobs and reports on them.
+service JobService {
+  // Run submits a command. The job starts immediately, or waits as PENDING
+  // when the server is already running its maximum number of jobs.
+  rpc Run(RunRequest) returns (RunResponse);
+
+  // Stop terminates a pending or running job and its child processes.
+  rpc Stop(StopRequest) returns (StopResponse);
+
+  // Get returns one job.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // List returns all jobs, newest first.
+  rpc List(ListRequest) returns (ListResponse);
+
+  // Delete removes a finished job and its log. Running jobs must be stopped first.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  // StreamOutput sends the job's combined stdout/stderr from the beginning,
+  // then follows new output until the job finishes.
+  rpc StreamOutput(StreamOutputRequest) returns (stream StreamOutputResponse);
+}
+
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_PENDING = 1;
+  JOB_STATUS_RUNNING = 2;
+  JOB_STATUS_COMPLETED = 3;
+  JOB_STATUS_FAILED = 4;
+  JOB_STATUS_STOPPED = 5;
+  // The server restarted while the job was pending or running.
+  JOB_STATUS_INTERRUPTED = 6;
+}
+
+message Job {
+  string id = 1;
+  string name = 2;
+  string cmd = 3;
+  JobStatus status = 4;
+  // Exit code of the command; only meaningful for COMPLETED and FAILED jobs.
+  int32 exit_code = 5;
+  string error = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp finished_at = 9;
+}
+
+message RunRequest {
+  string name = 1;
+  string cmd = 2;
+}
+
+message RunResponse {
+  Job job = 1;
+}
+
+message StopRequest {
+  string id = 1;
+}
+
+message StopResponse {
+  Job job = 1;
+}
+
+message GetRequest {
+  string id = 1;
+}
+
+message GetResponse {
+  Job job = 1;
+}
+
+message ListRequest {}
+
+message ListResponse {
+  repeated Job jobs = 1;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message DeleteResponse {}
+
+message StreamOutputRequest {
+  string id = 1;
+}
+
+message StreamOutputResponse {
+  bytes data = 1;
+}
